@@ -165,11 +165,8 @@ class Request(threading.Thread):
             # Process the request.
             result = self.process_request(request)
             # Send the result.
-            sys.stdout.flush()
             worker.write(result + '\n')
-            sys.stdout.flush()
             worker.flush()
-            sys.stdout.flush()
         except Exception as e:
             # Catch all errors in order to prevent the object from crashing
             # due to bad connections coming from outside.
