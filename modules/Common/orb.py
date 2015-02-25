@@ -79,6 +79,8 @@ class Stub(object):
         }
 
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        #s.settimeout(5.0)
+        print ("connecting to : " + str(self.address))
         s.connect(self.address)
 
         worker = s.makefile(mode="rw")
@@ -87,11 +89,19 @@ class Stub(object):
         worker.write(requeststr + '\n')
         worker.flush()
 
-        reply = json.loads(worker.readline())
+        print ('request sent')
+        print (request)
 
-        self.checkError(reply)
+        try:
+            reply = json.loads(worker.readline())
 
-        return reply['result']
+            self.checkError(reply)
+
+            s.close()
+
+            return reply['result']
+        except socket.timeout:
+            return None
 
         pass
 
@@ -114,9 +124,13 @@ class Request(threading.Thread):
         self.daemon = True
 
     def run(self):
-        #
-        # Your code here.
-        #
+        '''
+        print ('running request')
+        worker = self.conn.makefile(mode="rw")        
+        reply = json.loads(worker.readline())
+
+        print (reply)
+        '''
         pass
 
 
@@ -137,12 +151,16 @@ class Skeleton(threading.Thread):
         #
         # Your code here.
         #
+        print ("address")
+        print (self.address)
         pass
 
     def run(self):
 
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.address = (socket.gethostname(), self.address[1])
         server.bind(self.address)
+        
         server.listen(1)
 
         while True:
