@@ -124,13 +124,38 @@ class Request(threading.Thread):
         self.daemon = True
 
     def run(self):
-        '''
-        print ('running request')
-        worker = self.conn.makefile(mode="rw")        
-        reply = json.loads(worker.readline())
+        
+        print ('received request')
 
-        print (reply)
-        '''
+        rep = {}
+        worker = self.conn.makefile(mode="rw")        
+
+        try:
+            req = json.loads(worker.readline())
+
+            print (req)
+
+            rep = {
+                "result": getattr(self.owner.owner, req['method'])(*req['args'])
+            }
+
+        except Exception as e:
+            rep = {
+                "error": {
+                    "name": str(type(e).__name__),
+                    "args": e.args
+                }
+            }
+
+
+        print ('sending reply')
+        print (rep)
+
+        worker.write(json.dumps(rep) + '\n')
+        worker.flush()
+
+        self.conn.close()
+        
         pass
 
 
