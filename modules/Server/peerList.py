@@ -39,6 +39,24 @@ class PeerList(object):
             #
             # Your code here.
             #
+            print ("requesting peer list")
+            rep = self.owner.name_service.require_all(self.owner.type)
+
+            for pid, paddr in rep:
+
+                try:
+                    stub = orb.Stub(paddr)
+                    self.peers[pid] = stub
+
+                    if pid != self.owner.id:
+                        self.peers[pid].register_peer(self.owner.id, self.owner.address)
+                    
+                    self.peers[pid] = stub
+
+                except:
+                    pass
+
+            print (self.peers)
             pass
         finally:
             self.lock.release()
@@ -51,6 +69,15 @@ class PeerList(object):
             #
             # Your code here.
             #
+
+            pids = sorted(self.peers.keys())
+            for pid in pids:
+                try:
+                    if pid != self.owner.id:
+                        self.peers[pid].unregister_peer(self.owner.id)
+                except:
+                    pass
+
             pass
         finally:
             self.lock.release()
