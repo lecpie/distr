@@ -70,7 +70,7 @@ class DistributedLock(object):
 
     def _unprepare(self, token):
         """The reverse operation to the one above."""
-        return dict(token)
+        return dict(token)        
 
     # Public methods
 
@@ -89,6 +89,21 @@ class DistributedLock(object):
         #
         # Your code here.
         #
+        self.peer_list.lock.acquire()
+
+        # if we are the only peer in the list then we take the token
+        # so that at least one peer in the system own the token 
+
+        if len(self.peer_list.peers) == 1:
+            self.state = TOKEN_PRESENT
+
+        pids = sorted(self.peer_list.peers.keys())
+
+        self.token = {}
+        for pid in pids:
+            self.token[pid] = 0
+
+        self.peer_list.lock.release()
         pass
 
     def destroy(self):
@@ -101,6 +116,36 @@ class DistributedLock(object):
         #
         # Your code here.
         #
+
+        # if we we have token, maybe someone else asked for it
+
+        if self.state == TOKEN_HELD:
+            self.release()
+
+        # if we hold the token then we should pass it to someone else
+        
+        # but only if there is someone to give it to
+        if len (self.peer_list.get_peers()) == 1:
+            return
+
+        pids = sorted(self.peer_list.get_peers().keys())
+        cur = pids.index(self.owner.id)
+
+        while self.state == TOKEN_PRESENT:
+            # next index of pid in the list, circularly
+            cur = cur + 1
+            if cur == len(pids):
+                cur = 0
+
+            pid = pids[cur]
+
+            # try to give the token to the next peer in the list
+            try:
+                self.peer_list.peer(pid).obtain_token(self._prepare(self.token))
+                self.state = NO_TOKEN
+            except:
+                pass
+
         pass
 
     def register_peer(self, pid):
@@ -108,6 +153,9 @@ class DistributedLock(object):
         #
         # Your code here.
         #
+
+        self.token[pid] = 0
+
         pass
 
     def unregister_peer(self, pid):
@@ -115,6 +163,10 @@ class DistributedLock(object):
         #
         # Your code here.
         #
+        del self.token[pid]
+        if pid in self.request:
+            del self.request[pid]
+
         pass
 
     def acquire(self):
@@ -123,7 +175,32 @@ class DistributedLock(object):
         #
         # Your code here.
         #
+
+        if self.state == NO_TOKEN:
+
+            pids = sorted(self.peer_list.get_peers().keys())
+            for pid in pids:
+                if pid == self.owner.id:
+                    continue
+
+                try:
+                    # increment our clock before sending a message
+                    self.time = self.time + 1
+
+                    #send the request message with our clock and id
+                    self.peer_list.peer(pid).request_token(self.time, self.owner.id)
+                except:
+                    pass
+
+            # wait for the token
+            # Active waiting... bad, should be modified later
+
+            while self.state != TOKEN_PRESENT:
+                pass
+
         pass
+
+        self.state = TOKEN_HELD
 
     def release(self):
         """Called when this object releases the lock."""
@@ -131,6 +208,30 @@ class DistributedLock(object):
         #
         # Your code here.
         #
+
+        self.state = TOKEN_PRESENT
+
+        pids = sorted(self.peer_list.get_peers().keys())
+
+        for pid in pids:
+            if pid == self.owner.id:
+                continue
+
+            # if we should give the token to this peer
+            if pid in self.request and self.request[pid] > self.token[pid]:
+
+                # increment our clock before sending a message
+                self.time = self.time + 1
+                self.token[pid] = self.token[pid] + 1
+
+                # update our own status and the token
+                self.state = NO_TOKEN
+                self.token[self.owner.id] = self.time
+
+                # send the token
+                self.peer_list.peer(pid).obtain_token(self._prepare(self.token))
+
+                break
         pass
 
     def request_token(self, time, pid):
@@ -138,6 +239,18 @@ class DistributedLock(object):
         #
         # Your code here.
         #
+        #update logical clock
+        self.time = max(time, self.time)
+
+        #update request timestamp
+        if pid in self.request:
+            self.request[pid] = max(self.request[pid], time)
+        else:
+            self.request[pid] = time
+
+        if self.state == TOKEN_PRESENT:
+            self.release()
+
         pass
 
     def obtain_token(self, token):
@@ -146,6 +259,9 @@ class DistributedLock(object):
         #
         # Your code here.
         #
+
+        self.token = self._unprepare(token)
+        self.state = TOKEN_PRESENT
         pass
 
     def display_status(self):
