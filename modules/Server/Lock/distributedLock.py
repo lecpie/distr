@@ -150,9 +150,6 @@ class DistributedLock(object):
 
     def register_peer(self, pid):
         """Called when a new peer joins the system."""
-        #
-        # Your code here.
-        #
 
         self.token[pid] = 0
 
@@ -160,9 +157,7 @@ class DistributedLock(object):
 
     def unregister_peer(self, pid):
         """Called when a peer leaves the system."""
-        #
-        # Your code here.
-        #
+
         del self.token[pid]
         if pid in self.request:
             del self.request[pid]
@@ -172,82 +167,99 @@ class DistributedLock(object):
     def acquire(self):
         """Called when this object tries to acquire the lock."""
         print("Trying to acquire the lock...")
-        #
-        # Your code here.
-        #
 
+        # if we don't have the  token, we have to request it
         if self.state == NO_TOKEN:
 
+            # go through all peers in the system other than us
             pids = sorted(self.peer_list.get_peers().keys())
             for pid in pids:
                 if pid == self.owner.id:
                     continue
-
                 try:
                     # increment our clock before sending a message
                     self.time = self.time + 1
 
-                    #send the request message with our clock and id
+                    # send the request message with our clock and id
                     self.peer_list.peer(pid).request_token(self.time, self.owner.id)
                 except:
                     pass
 
             # wait for the token
             # Active waiting... bad, should be modified later
-
             while self.state != TOKEN_PRESENT:
                 pass
 
-        pass
-
+        # update our state : the token is now locked
         self.state = TOKEN_HELD
+
+        pass
 
     def release(self):
         """Called when this object releases the lock."""
         print("Releasing the lock...")
-        #
-        # Your code here.
-        #
 
+        # If we don't have the token we shouldn't try to release it
+        if self.state == NO_TOKEN:
+            return
+
+        # We do not lock the token anymore
         self.state = TOKEN_PRESENT
 
+        # Go through all other peers id in a circular way
         pids = sorted(self.peer_list.get_peers().keys())
+        cur = pids.index(self.owner.id)
+        while 1:
+            # Take the next pid in the list
+            cur = cur + 1
 
-        for pid in pids:
-            if pid == self.owner.id:
-                continue
+            # If we are off bound, go to the first pid in the ordered pid list
+            if cur >= len(pids):
+                cur = 0
 
-            # if we should give the token to this peer
+            # If the curcular iteration goes back to our pid, we keep the token
+            if cur == pids.index(self.owner.id):
+                break
+
+            pid = pids[cur]
+
+            # If we should give the token to this peer.
+            # The rule is that this token should have requested the token
+            # and it should have requested it
             if pid in self.request and self.request[pid] > self.token[pid]:
 
-                # increment our clock before sending a message
-                self.time = self.time + 1
-                self.token[pid] = self.token[pid] + 1
-
-                # update our own status and the token
-                self.state = NO_TOKEN
+                # Record this time as the last time we have the token
                 self.token[self.owner.id] = self.time
+
+                # Increment our clock before sending a message
+                self.time = self.time + 1
+
+                # Include the time this process got the token
+                self.token[pid] = self.time
 
                 # send the token
                 self.peer_list.peer(pid).obtain_token(self._prepare(self.token))
 
+                # update our status, we no longer have the token
+                self.state = NO_TOKEN
+
                 break
+
         pass
 
     def request_token(self, time, pid):
         """Called when some other object requests the token from us."""
-        #
-        # Your code here.
-        #
-        #update logical clock
-        self.time = max(time, self.time)
 
-        #update request timestamp
+        # Update our logical clock
+        self.time = max(time, self.time + 1)
+
+        # Update request timestamp
         if pid in self.request:
-            self.request[pid] = max(self.request[pid], time)
+            self.request[pid] = max(self.request[pid], self.time)
         else:
-            self.request[pid] = time
+            self.request[pid] = self.time
 
+        # If we have the token but we don't need it then we release it
         if self.state == TOKEN_PRESENT:
             self.release()
 
@@ -256,12 +268,14 @@ class DistributedLock(object):
     def obtain_token(self, token):
         """Called when some other object is giving us the token."""
         print("Receiving the token...")
-        #
-        # Your code here.
-        #
 
+        # Update our status and save the token
         self.token = self._unprepare(token)
         self.state = TOKEN_PRESENT
+
+        # Update our logical clock
+        self.time = max (self.time + 1, self.token[self.owner.id])
+
         pass
 
     def display_status(self):
