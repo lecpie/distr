@@ -86,9 +86,6 @@ class DistributedLock(object):
         function is called.
 
         """
-        #
-        # Your code here.
-        #
         self.peer_list.lock.acquire()
 
         # if we are the only peer in the list then we take the token
@@ -113,9 +110,6 @@ class DistributedLock(object):
         give it to someone else.
 
         """
-        #
-        # Your code here.
-        #
 
         # if we we have token, maybe someone else asked for it
 
@@ -171,19 +165,25 @@ class DistributedLock(object):
         # if we don't have the  token, we have to request it
         if self.state == NO_TOKEN:
 
-            # go through all peers in the system other than us
+            # We don't want the peer list to be modified here
+            self.peer_list.lock.acquire()
+
+            # Go through all peers in the system other than us
             pids = sorted(self.peer_list.get_peers().keys())
             for pid in pids:
                 if pid == self.owner.id:
                     continue
                 try:
-                    # increment our clock before sending a message
+                    # Increment our clock before sending a message
                     self.time = self.time + 1
 
-                    # send the request message with our clock and id
-                    self.peer_list.peer(pid).request_token(self.time, self.owner.id)
+                    # Send the request message with our clock and id
+                    self.peer_list.peers[pid].request_token(self.time, self.owner.id)
                 except:
                     pass
+
+            # We don't need the peer list anymore
+            self.peer_list.lock.release()
 
             # wait for the token
             # Active waiting... bad, should be modified later
@@ -206,8 +206,11 @@ class DistributedLock(object):
         # We do not lock the token anymore
         self.state = TOKEN_PRESENT
 
+        # We don't want the peer list to be modified here
+        self.peer_list.lock.acquire()
+
         # Go through all other peers id in a circular way
-        pids = sorted(self.peer_list.get_peers().keys())
+        pids = sorted(self.peer_list.peers.keys())
         cur = pids.index(self.owner.id)
         while 1:
             # Take the next pid in the list
@@ -228,6 +231,10 @@ class DistributedLock(object):
             # and it should have requested it
             if pid in self.request and self.request[pid] > self.token[pid]:
 
+                # This pid is selected for copy, but maybe we can't reach it anymore
+                # So we copy the token status to be able to restore it
+                tokencpy = self.token.copy()
+
                 # Record this time as the last time we have the token
                 self.token[self.owner.id] = self.time
 
@@ -237,13 +244,25 @@ class DistributedLock(object):
                 # Include the time this process got the token
                 self.token[pid] = self.time
 
-                # send the token
-                self.peer_list.peer(pid).obtain_token(self._prepare(self.token))
+                try:
+                    # send the token
+                    self.peer_list.peers[pid].obtain_token(self._prepare(self.token))
 
-                # update our status, we no longer have the token
-                self.state = NO_TOKEN
+                    # update our status, we no longer have the token
+                    self.state = NO_TOKEN
 
-                break
+                    break
+
+                except:
+                    # Restore the token
+                    token = tokencpy
+                    
+                    # Maybe we should also forget about this peer and unregister it ?
+                    # But maybe it's going to happen as we locked the list
+                
+
+        # We don't need the peer list anymore
+        self.peer_list.lock.release()
 
         pass
 
