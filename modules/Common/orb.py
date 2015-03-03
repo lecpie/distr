@@ -99,6 +99,9 @@ class Stub(object):
 
             s.close()
 
+            print ("Received reply")
+            print (reply)
+
             return reply['result']
         except socket.timeout:
             return None
