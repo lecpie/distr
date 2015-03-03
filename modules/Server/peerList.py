@@ -36,28 +36,33 @@ class PeerList(object):
 
         self.lock.acquire()
         try:
-            #
-            # Your code here.
-            #
+            # Ask for the peer list from the name service.
             print ("requesting peer list")
             rep = self.owner.name_service.require_all(self.owner.type)
 
+            # Create a stub object for each peer listed by the nameservice.
             for pid, paddr in rep:
-
                 try:
+                    # Create the stub object.
                     stub = orb.Stub(paddr)
-                    self.peers[pid] = stub
 
-                    if pid != self.owner.id:
-                        self.peers[pid].register_peer(self.owner.id, self.owner.address)
+                    # Only create a stub object for this peer if it's not us.
+                    # And if its pid is lower, if it is higher it probably means
+                    # that we will receive a registration message and add it two times
+                    # This probably needs rethinking to avoid relying on incremental ids.
+                    if pid < self.owner.id:
+                        # Send the registration message.
+                        stub.register_peer(self.owner.id, self.owner.address)
                     
+                    # Only add it to our list if we could be registered by this peer.
+                    # or if it's us
                     self.peers[pid] = stub
 
                 except:
+                    # One peer failing to be registered should not crash the whole program.
+                    # So we just do without him if we can't reach him.
                     pass
 
-            print (self.peers)
-            pass
         finally:
             self.lock.release()
 
