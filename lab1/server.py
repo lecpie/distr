@@ -64,18 +64,20 @@ class Server(object):
     # Public methods
 
     def read(self):
-        self.rwlock.read_acquire()
-        result = self.db.read()
-        self.rwlock.read_release()
-
-        return result
+        try:
+            self.rwlock.read_acquire()
+            return self.db.read()
+        finally:
+            self.rwlock.read_release()
         
         pass
 
     def write(self, fortune):
-        self.rwlock.write_acquire()
-        self.db.write(fortune)
-        self.rwlock.write_release()
+        try:
+            self.rwlock.write_acquire()
+            self.db.write(fortune)
+        finally:
+            self.rwlock.write_release()
 
         pass
 
