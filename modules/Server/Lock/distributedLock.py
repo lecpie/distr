@@ -88,10 +88,12 @@ class DistributedLock(object):
         """
         self.peer_list.lock.acquire()
 
-        # if we are the only peer in the list then we take the token
-        # so that at least one peer in the system own the token 
+        # if we are the lowest id peer on initialization then we should have the token
+        # so that at least one peer in the system own the token.
+        # We use the incremental id property, if we are the lowest id alive,
+        # then we arrived first.
 
-        if len(self.peer_list.peers) == 1:
+        if min(self.peer_list.peers) == self.owner.id:
             self.state = TOKEN_PRESENT
 
         pids = sorted(self.peer_list.peers.keys())
