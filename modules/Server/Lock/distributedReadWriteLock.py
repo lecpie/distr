@@ -35,10 +35,12 @@ class DistributedReadWriteLock(readWriteLock.ReadWriteLock):
         to the rest of the peers.
 
         """
-
         #
         # Your code here.
         #
+        readWriteLock.ReadWriteLock.write_acquire(self)
+        self.distributed_lock.acquire()
+
         pass
 
     def write_release(self):
@@ -48,10 +50,12 @@ class DistributedReadWriteLock(readWriteLock.ReadWriteLock):
         to the rest of the peers.
 
         """
-
         #
         # Your code here.
         #
+        self.distributed_lock.release()
+        readWriteLock.ReadWriteLock.write_release(self)
+        
         pass
 
     def write_acquire_local(self):

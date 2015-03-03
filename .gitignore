@@ -1,2 +1,5 @@
 *.tmp
 *.pyc
+
+#generated dababases
+lab5/dbs/fortune_*.db
