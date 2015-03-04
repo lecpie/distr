@@ -86,7 +86,7 @@ class DatabaseProxy(object):
             reply['error']['name'] = str(Exception.__name__)
             reply['error']['args'] = ['Unexcpected server reply']
         if 'error' in reply:
-            e = eval(reply['error']['name'])(reply['error']['args'])
+            e = eval(reply['error']['name'])(*reply['error']['args'])
             raise e
 
     def read(self):
