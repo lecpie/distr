@@ -135,9 +135,7 @@ class Server(orb.Peer):
         """
 
         self.drwlock.write_acquire()
-        print ("got that fucking lock")
         try:
-            print("writing")
             self.db.write(fortune)
 
             pids = sorted(self.peer_list.get_peers().keys())
@@ -145,16 +143,9 @@ class Server(orb.Peer):
                 if pid == self.id:
                     continue
                 try:
-                    print ("asking a peer to write")
                     self.peer_list.peer(pid).write_local(fortune)
-                    print ("asked...")
                 except:
                     print("could not ask a server to write : " + str(pid))
-
-            print ("asked all")
-
-        except:
-            print ("KAABOOOM")
 
         finally:
             self.drwlock.write_release()
