@@ -174,11 +174,12 @@ class DistributedLock(object):
         """Called when this object tries to acquire the lock."""
         print("Trying to acquire the lock...")
 
-        # if we don't have the  token, we have to request it
-        if self.state == NO_TOKEN:
+        self.peer_list.lock.acquire()
             
-            self.peer_list.lock.acquire()
-            try:
+        try:
+
+            # if we don't have the  token, we have to request it
+            if self.state == NO_TOKEN:
                 # Go through all peers in the system other than us
                 pids = sorted(self.peer_list.peers.keys())
                 for pid in pids:
@@ -201,8 +202,8 @@ class DistributedLock(object):
                         self.peer_list.lock.acquire()
                     except:
                         pass
-            finally:
-                self.peer_list.lock.release()
+        finally:
+            self.peer_list.lock.release()
 
         # wait for the token
         # Active waiting... bad, should be modified later
@@ -210,18 +211,22 @@ class DistributedLock(object):
             pass
 
         # update our state : the token is now locked
+        self.peer_list.lock.acquire()
         self.state = TOKEN_HELD
+        self.peer_list.lock.release()
+
 
     def release(self):
         """Called when this object releases the lock."""
         print("Releasing the lock...")
         
-        # If we don't have the token we shouldn't try to release it
-        if self.state == NO_TOKEN:
-            return
 
         self.peer_list.lock.acquire()
         try:
+
+            # If we don't have the token we shouldn't try to release it
+            if self.state == NO_TOKEN:
+                return
 
             # We do not lock the token anymore
             self.state = TOKEN_PRESENT
@@ -293,12 +298,12 @@ class DistributedLock(object):
             else:
                 self.request[pid] = self.time
 
+            # If we have the token but we don't need it then we release it
+            if self.state == TOKEN_PRESENT:
+                self.release()
+
         finally:
             self.peer_list.lock.release()
-
-        # If we have the token but we don't need it then we release it
-        if self.state == TOKEN_PRESENT:
-            self.release()
 
         pass
 
