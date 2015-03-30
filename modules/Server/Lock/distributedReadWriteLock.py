@@ -21,9 +21,10 @@ class DistributedReadWriteLock(readWriteLock.ReadWriteLock):
         readWriteLock.ReadWriteLock.__init__(self)
         # Create a distributed lock
         self.distributed_lock = distributed_lock
-        #
-        # Your code here.
-        #
+        
+        #Create a lock protecting the distributed lock acquiring
+        self.distributed_lock_access = threading.Lock()
+
         pass
 
     # Public methods
@@ -35,8 +36,10 @@ class DistributedReadWriteLock(readWriteLock.ReadWriteLock):
         to the rest of the peers.
 
         """
-
+        self.distributed_lock_access.acquire()
         self.distributed_lock.acquire()
+        self.distributed_lock_access.release()
+
         readWriteLock.ReadWriteLock.write_acquire(self)
 
         pass
@@ -47,11 +50,11 @@ class DistributedReadWriteLock(readWriteLock.ReadWriteLock):
         Override the write_release method to include releasing access
         to the rest of the peers.
 
-        """
-        #
-        # Your code here.
-        #
+        """        
+        self.distributed_lock_access.acquire()
         self.distributed_lock.release()
+        self.distributed_lock_access.release()
+
         readWriteLock.ReadWriteLock.write_release(self)
         
         pass
