@@ -38,7 +38,6 @@ class DistributedReadWriteLock(readWriteLock.ReadWriteLock):
         """
         self.distributed_lock_access.acquire()
         self.distributed_lock.acquire()
-        self.distributed_lock_access.release()
 
         readWriteLock.ReadWriteLock.write_acquire(self)
 
@@ -51,7 +50,6 @@ class DistributedReadWriteLock(readWriteLock.ReadWriteLock):
         to the rest of the peers.
 
         """        
-        self.distributed_lock_access.acquire()
         self.distributed_lock.release()
         self.distributed_lock_access.release()
 
